@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Class Points Tracker</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    select, button { font-size: 16px; margin: 10px 0; }
+    .section { margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>🎓 Class Points Tracker</h1>
+
+  <label for="studentSelect">Select your name:</label>
+  <select id="studentSelect">
+    <option value="">-- Select a student --</option>
+  </select>
+  <button onclick="loadData()">View My Points</button>
+
+  <div id="studentInfo" class="section"></div>
+
+  <div class="section">
+    <h2>🏆 Class Rankings</h2>
+    <ul id="rankings"></ul>
+  </div>
+
+ <div class="section">
+  <h2>🛒 Shop</h2>
+  <button onclick="window.location.href='shop.html'">Go to Shop</button>
+</div>
+
+
+  <script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxQt-MnsYipxDZ_t_sKohove-kCOnY7ufjZmydLdsDxAL0sSaMEXJ8-Lx0wJQcTWLdI/exec';
+    let data = {};
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      const dropdown = document.getElementById("studentSelect");
+      dropdown.innerHTML = '<option value="">Loading student list...</option>';
+
+      try {
+        const res = await fetch(API_URL);
+        data = await res.json();
+        console.log("✅ Fetched students:", data.students);
+        populateStudentDropdown(data.students);
+      } catch (err) {
+        console.error("❌ Failed to fetch student data:", err);
+        dropdown.innerHTML = '<option value="">Failed to load students</option>';
+      }
+    });
+
+    function populateStudentDropdown(students) {
+      const dropdown = document.getElementById("studentSelect");
+      dropdown.innerHTML = '<option value="">-- Select a student --</option>';
+
+      students.forEach(student => {
+        const studentName = student.name || student.Name;
+        if (studentName) {
+          const option = document.createElement("option");
+          option.value = studentName;
+          option.textContent = studentName;
+          dropdown.appendChild(option);
+        }
+      });
+    }
+
+    function loadData() {
+      const selectedName = document.getElementById("studentSelect").value;
+      const infoDiv = document.getElementById("studentInfo");
+
+      if (!selectedName) {
+        infoDiv.innerHTML = "<p>Please select your name.</p>";
+        return;
+      }
+
+      const student = data.students.find(
+        s => (s.name || s.Name) === selectedName
+      );
+      if (!student) {
+        infoDiv.innerHTML = `<p>Student "${selectedName}" not found.</p>`;
+        return;
+      }
+
+      const studentName = student.name || student.Name;
+      const points = student.points || student.Points;
+      const level = student.level || student.Level;
+      const balance = student.balance || student.Balance;
+
+      infoDiv.innerHTML = `
+        <h2>Hello, ${studentName} 👋</h2>
+        <p><strong>Points:</strong> ${points}</p>
+        <p><strong>Level:</strong> ${level}</p>
+        <p><strong>Balance:</strong> $${balance}</p>
+      `;
+
+      const rankings = [...data.students].sort((a, b) => {
+        const aPoints = a.points || a.Points || 0;
+        const bPoints = b.points || b.Points || 0;
+        return bPoints - aPoints;
+      });
+
+      document.getElementById("rankings").innerHTML = rankings
+        .map(s => {
+          const name = s.name || s.Name;
+          const pts = s.points || s.Points || 0;
+          return `<li>${name} - ${pts} pts</li>`;
+        })
+        .join('');
+
+      document.getElementById("shop").innerHTML = data.shop
+        .map(item => {
+          const itemName = item.item || item.Item;
+          const price = item.price || item.Price;
+          const desc = item.description || item.Description || '';
+          return `<li><strong>${itemName}</strong> - $${price}<br>${desc}</li>`;
+        })
+        .join('');
+    }
+  </script>
+</body>
+</html>

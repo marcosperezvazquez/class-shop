@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Class Shop</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    h1 { font-size: 24px; }
+    button { font-size: 16px; margin-top: 5px; }
+  </style>
+</head>
+<body>
+  <h1>🛒 Class Shop</h1>
+  <div id="shopContainer"></div>
+
+  <script>
+    const studentName = "Bella"; // for testing
+    const password = "mydog456"; // match your Google Sheet data
+    const API_URL = "https://script.google.com/macros/s/AKfycbxQt-MnsYipxDZ_t_sKohove-kCOnY7ufjZmydLdsDxAL0sSaMEXJ8-Lx0wJQcTWLdI/exec";
+
+    async function loadShop() {
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+        const student = data.students.find(s => s.name === studentName && s.password === password);
+        if (!student) {
+          document.body.innerHTML = "<p>Access denied.</p>";
+          return;
+        }
+
+        document.getElementById("shopContainer").innerHTML = `
+          <p><strong>Welcome, ${student.name}!</strong></p>
+          <p>Balance: $${student.balance}</p>
+          <ul>
+            ${data.shop.map(item => `
+              <li>
+                <strong>${item.item}</strong> - $${item.price}<br>
+                ${item.description || ""}
+                <br><button onclick="buy('${student.name}', '${item.item}', ${item.price})">Buy</button>
+              </li>`).join("")}
+          </ul>
+        `;
+      } catch (err) {
+        console.error("Error loading shop:", err);
+        document.body.innerHTML = "<p>Failed to load shop data.</p>";
+      }
+    }
+
+    async function buy(name, item, price) {
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, item, price })
+        });
+        const result = await res.json();
+        if (result.success) {
+          alert("Purchase successful!");
+          location.reload();
+        } else {
+          alert("Failed: " + result.error);
+        }
+      } catch (err) {
+        alert("Network error.");
+        console.error("Fetch error:", err);
+      }
+    }
+
+    loadShop();
+  </script>
+</body>
+</html>
