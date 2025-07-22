@@ -1,73 +1,122 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Class Shop</title>
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
-    h1 { font-size: 24px; }
-    button { font-size: 16px; margin-top: 5px; }
+    .section { margin-top: 20px; }
+    button { margin-top: 5px; }
   </style>
 </head>
 <body>
   <h1>🛒 Class Shop</h1>
-  <div id="shopContainer"></div>
+
+  <div id="loginSection">
+    <label for="studentName">Name:</label>
+    <input type="text" id="studentName" placeholder="Enter your name" />
+    <br>
+    <label for="passwordInput">Password:</label>
+    <input type="password" id="passwordInput" placeholder="Enter your password" />
+    <br>
+    <button onclick="login()">Log In</button>
+    <p id="loginMessage"></p>
+  </div>
+
+  <div id="shopSection" class="section" style="display:none;">
+    <h2>Welcome, <span id="studentDisplay"></span>!</h2>
+    <p><strong>Balance:</strong> $<span id="balanceDisplay">0</span></p>
+    <ul id="shopList"></ul>
+  </div>
 
   <script>
-    const studentName = "Bella"; // for testing
-    const password = "mydog456"; // match your Google Sheet data
-    const API_URL = "https://script.google.com/macros/s/AKfycbxQt-MnsYipxDZ_t_sKohove-kCOnY7ufjZmydLdsDxAL0sSaMEXJ8-Lx0wJQcTWLdI/exec";
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxQt-MnsYipxDZ_t_sKohove-kCOnY7ufjZmydLdsDxAL0sSaMEXJ8-Lx0wJQcTWLdI/exec';
+    let data = {};
+    let loggedInStudent = null;
 
-    async function loadShop() {
+    document.addEventListener("DOMContentLoaded", async () => {
       try {
         const res = await fetch(API_URL);
-        const data = await res.json();
-        const student = data.students.find(s => s.name === studentName && s.password === password);
-        if (!student) {
-          document.body.innerHTML = "<p>Access denied.</p>";
-          return;
-        }
-
-        document.getElementById("shopContainer").innerHTML = `
-          <p><strong>Welcome, ${student.name}!</strong></p>
-          <p>Balance: $${student.balance}</p>
-          <ul>
-            ${data.shop.map(item => `
-              <li>
-                <strong>${item.item}</strong> - $${item.price}<br>
-                ${item.description || ""}
-                <br><button onclick="buy('${student.name}', '${item.item}', ${item.price})">Buy</button>
-              </li>`).join("")}
-          </ul>
-        `;
+        data = await res.json();
+        console.log("✅ Shop loaded:", data.shop);
       } catch (err) {
-        console.error("Error loading shop:", err);
-        document.body.innerHTML = "<p>Failed to load shop data.</p>";
+        alert("❌ Failed to load shop.");
+        console.error(err);
       }
+    });
+
+    function login() {
+      const name = document.getElementById("studentName").value.trim();
+      const password = document.getElementById("passwordInput").value.trim();
+      const msg = document.getElementById("loginMessage");
+
+      if (!name || !password) {
+        msg.textContent = "Please enter your name and password.";
+        return;
+      }
+
+      const student = data.students.find(s => s.name === name && s.password === password);
+      if (!student) {
+        msg.textContent = "Invalid name or password.";
+        return;
+      }
+
+      loggedInStudent = student;
+      msg.textContent = "";
+      document.getElementById("loginSection").style.display = "none";
+      document.getElementById("shopSection").style.display = "block";
+      document.getElementById("studentDisplay").textContent = loggedInStudent.name;
+      document.getElementById("balanceDisplay").textContent = loggedInStudent.balance;
+      renderShopItems();
     }
 
-    async function buy(name, item, price) {
+    function renderShopItems() {
+      const shopList = document.getElementById("shopList");
+      shopList.innerHTML = "";
+
+      data.shop.forEach(item => {
+        const li = document.createElement("li");
+        li.innerHTML = `
+          <strong>${item.item}</strong> - $${item.price}<br>${item.description || ""}
+          <br><button onclick="handlePurchase('${item.item}', ${item.price})">Buy</button>
+        `;
+        shopList.appendChild(li);
+      });
+    }
+
+    async function handlePurchase(itemName, itemPrice) {
+      const studentName = loggedInStudent.name;
+      const password = document.getElementById("passwordInput").value;
+
+      const confirmBuy = confirm(`Are you sure you want to buy "${itemName}" for $${itemPrice}?`);
+      if (!confirmBuy) return;
+
       try {
-        const res = await fetch(API_URL, {
+        const response = await fetch(API_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, item, price })
+          body: JSON.stringify({
+            action: "purchase",
+            student: studentName,
+            password: password,
+            item: itemName,
+            price: itemPrice
+          })
         });
-        const result = await res.json();
+
+        const result = await response.json();
+
         if (result.success) {
-          alert("Purchase successful!");
-          location.reload();
+          alert(`✅ Purchase successful! New balance: $${result.newBalance}`);
+          loggedInStudent.balance = result.newBalance;
+          document.getElementById("balanceDisplay").textContent = result.newBalance;
         } else {
-          alert("Failed: " + result.error);
+          alert(`❌ ${result.message}`);
         }
       } catch (err) {
-        alert("Network error.");
         console.error("Fetch error:", err);
+        alert("❌ Purchase failed. Please try again.");
       }
     }
-
-    loadShop();
   </script>
 </body>
 </html>
